@@ -1,6 +1,6 @@
 # Ignore these files
 auth.json
-#tweets.db
+tweets.db
 *.log
 *.sqlite
 recent_updates.json
