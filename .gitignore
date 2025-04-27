@@ -1,0 +1,7 @@
+# Ignore these files
+auth.json
+#tweets.db
+*.log
+*.sqlite
+recent_updates.json
+__pycache__/

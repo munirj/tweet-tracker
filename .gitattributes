@@ -1,0 +1,26 @@
+# normalises files / endings for working across systems e.g. windows vs mac
+
+# Handle all files automatically
+* text=auto
+
+# Always use LF for source code files
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+
+# Binary files - don't modify line endings at all
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.db binary
+
+# Windows batch files - force CRLF if needed
+*.bat text eol=crlf
+*.cmd text eol=crlf
