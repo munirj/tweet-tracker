@@ -61,10 +61,10 @@ def updater_engagement_tracker():
     recent_updates = load_recent_updates()
 
     # Configurable timing parameters
-    max_cycle_seconds = 65                # Max total time for each scroll/update cycle
+    max_cycle_seconds = 60                # Max total time for each scroll/update cycle
     min_update_spacing_seconds = 50       # Minimum spacing between updates for each tweet
-    scroll_pause_seconds = 0.3            # Pause between scroll actions
-    scroll_offset_pixels = 1000           # Amount to scroll each pass
+    scroll_pause_seconds = 0.1            # Pause between scroll actions
+    scroll_offset_pixels = 1500           # Amount to scroll each pass
 
     last_summary = None
     skipped_same_summaries = 0

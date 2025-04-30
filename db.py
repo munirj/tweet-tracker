@@ -40,23 +40,24 @@ def insert_new_tweets(tweets):
             print(f"[ERROR] Failed to insert tweet {tweet['id']}: {e}")
     conn.commit()
 
-    c.execute("""
-        DELETE FROM tweets WHERE tweet_id NOT IN (
-            SELECT tweet_id FROM tweets
-            ORDER BY created_at DESC
-            LIMIT 500
-        )
-    """)
-    conn.commit()
-
-def get_tweets_to_update(limit=200):
-    now = datetime.utcnow().isoformat()
-    c.execute("""
-        SELECT * FROM tweets
-        WHERE next_update_ts <= ?
-        ORDER BY next_update_ts ASC
-        LIMIT ?
-    """, (now, int(limit)))
+def get_tweets_to_update(hours_back=24, limit=None):
+    now = datetime.utcnow()
+    cutoff = now - timedelta(hours=hours_back)
+    if limit:
+        c.execute("""
+            SELECT * FROM tweets
+            WHERE next_update_ts <= ?
+              AND created_at >= ?
+            ORDER BY next_update_ts ASC
+            LIMIT ?
+        """, (now.isoformat(), cutoff.isoformat(), int(limit)))
+    else:
+        c.execute("""
+            SELECT * FROM tweets
+            WHERE next_update_ts <= ?
+              AND created_at >= ?
+            ORDER BY next_update_ts ASC
+        """, (now.isoformat(), cutoff.isoformat()))
     return [dict(row) for row in c.fetchall()]
 
 def update_tweet_metrics(tweet_id, metrics):
