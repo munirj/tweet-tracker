@@ -3,5 +3,6 @@ auth.json
 tweets.db
 *.log
 *.sqlite
+*.db
 recent_updates.json
 __pycache__/
