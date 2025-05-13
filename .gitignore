@@ -1,6 +1,6 @@
 # Ignore these files
 auth.json
-tweets.db
+*.db
 *.log
 *.sqlite
 *.db

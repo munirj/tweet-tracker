@@ -4,23 +4,9 @@ import sqlite3
 import time
 import json
 from config import SESSION_FILE
-<<<<<<< HEAD
 
 def init_db():
     conn = sqlite3.connect("tweets_overnight.db")
-=======
-import platform
-
-if platform.system() == "Darwin":
-    DB_PATH = "/Users/Munir/GoogleDrive/projects/dbs/tweets_overnight.db"
-elif platform.system() == "Windows":
-    DB_PATH = "G:\\My Drive\\projects\\dbs\\tweets_overnight.db"
-else:
-    raise RuntimeError("Unsupported OS")
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
->>>>>>> 3dd1f76a7db2a6337b5f12a6bf02426c33351890
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
@@ -188,12 +174,8 @@ def archive_tweets():
     conn, c = init_db()
     seen_ids = set()
     now = datetime.now(timezone.utc)
-<<<<<<< HEAD
-    cutoff_time = now - timedelta(hours=25)  # 25 hours for overlap
-=======
     # cutoff_time = now - timedelta(hours=25)  # 25 hours for overlap
-    cutoff_time = now - timedelta(hours=(25))  
->>>>>>> 3dd1f76a7db2a6337b5f12a6bf02426c33351890
+    cutoff_time = now - timedelta(hours=(24 * 120))  
     print(f"[ARCHIVER] Current time: {now}")
     print(f"[ARCHIVER] Cutoff time: {cutoff_time}")
     
@@ -246,11 +228,7 @@ def archive_tweets():
         no_new_tweets_count = 0
         
         scroll_attempts = 0
-<<<<<<< HEAD
-        max_scroll_attempts = 200  # Increase maximum scrolls
-=======
         max_scroll_attempts = 1000000  # Increase maximum scrolls
->>>>>>> 3dd1f76a7db2a6337b5f12a6bf02426c33351890
         last_progress_time = oldest_seen_time
         stalled_scrolls = 0
         
@@ -382,8 +360,4 @@ def archive_tweets():
         conn.close()
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     archive_tweets()
-=======
-    archive_tweets()
->>>>>>> 3dd1f76a7db2a6337b5f12a6bf02426c33351890
