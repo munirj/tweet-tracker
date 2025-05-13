@@ -4,9 +4,14 @@ import sqlite3
 import time
 import json
 from config import SESSION_FILE
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current script dir
+DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight.db")
+DB_PATH = os.path.abspath(DB_PATH)  
 
 def init_db():
-    conn = sqlite3.connect("tweets_overnight.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
