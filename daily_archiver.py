@@ -4,9 +4,17 @@ import sqlite3
 import time
 import json
 from config import SESSION_FILE
+import platform
+
+if platform.system() == "Darwin":
+    DB_PATH = "/Users/Munir/GoogleDrive/projects/dbs/tweets_overnight.db"
+elif platform.system() == "Windows":
+    DB_PATH = "G:\\My Drive\\projects\\dbs\\tweets_overnight.db"
+else:
+    raise RuntimeError("Unsupported OS")
 
 def init_db():
-    conn = sqlite3.connect("tweets_overnight.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
