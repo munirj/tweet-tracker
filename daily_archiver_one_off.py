@@ -7,8 +7,8 @@ from config import SESSION_FILE
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current script dir
-DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight.db")
-DB_PATH = os.path.abspath(DB_PATH)  
+DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight_long.db")
+DB_PATH = os.path.abspath(DB_PATH)  # normalize the final path
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -156,10 +156,10 @@ def careful_scroll(page):
         
         # Scroll to it using mouse wheel
         last_article.scroll_into_view_if_needed()
-        page.mouse.wheel(0, 500)
+        page.mouse.wheel(0, 1000)
         
         # Wait for load
-        time.sleep(2)
+        time.sleep(3)
         
         # Check if we moved
         new_articles = page.locator("article").all()
@@ -179,15 +179,14 @@ def archive_tweets():
     conn, c = init_db()
     seen_ids = set()
     now = datetime.now(timezone.utc)
-    # cutoff_time = now - timedelta(hours=25)  # 25 hours for overlap
-    cutoff_time = now - timedelta(hours=(24 * 120))  
+    cutoff_time = now - timedelta(hours=(24*120))  # 25 hours for overlap
     print(f"[ARCHIVER] Current time: {now}")
     print(f"[ARCHIVER] Cutoff time: {cutoff_time}")
     
     with sync_playwright() as p:
         # Launch browser with optimized settings
         browser = p.chromium.launch(
-            headless=False,
+            headless=True,
             args=[
                 '--disable-dev-shm-usage',
                 '--no-sandbox',
@@ -250,7 +249,7 @@ def archive_tweets():
             print(f"[ARCHIVER] Articles loaded: {article_count}")
             
             # Process articles in batches for better performance
-            batch_size = 5
+            batch_size = 10
             for i in range(0, article_count, batch_size):
                 batch_end = min(i + batch_size, article_count)
                 print(f"\n[ARCHIVER] Processing articles {i+1}-{batch_end} of {article_count}...")
@@ -346,14 +345,14 @@ def archive_tweets():
                         }
                     }
                 """)
-                time.sleep(5)  # Give it time to load
+                time.sleep(3)  # Give it time to load
                 stalled_scrolls = 0
             
             # Scroll carefully
             print(f"[ARCHIVER] Scrolling... (oldest seen: {oldest_seen_time})")
             if not careful_scroll(page):
                 print("[ARCHIVER] Failed to scroll, waiting before retry...")
-                time.sleep(5)
+                time.sleep(3)
                 stalled_scrolls += 1
         
         print("[ARCHIVER] Finished archiving tweets")

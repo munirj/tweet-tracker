@@ -186,7 +186,7 @@ def archive_tweets():
     with sync_playwright() as p:
         # Launch browser with optimized settings
         browser = p.chromium.launch(
-            headless=False,
+            headless=True,
             args=[
                 '--disable-dev-shm-usage',
                 '--no-sandbox',
@@ -277,9 +277,12 @@ def archive_tweets():
                         
                         # Skip if tweet is too old
                         if tweet_time < cutoff_time:
-                            print(f"[ARCHIVER] Tweet {tweet_id} is too old (before {cutoff_time})")
-                            continue
-                        
+                            # print(f"[ARCHIVER] Tweet {tweet_id} is too old (before {cutoff_time})")
+                            # continue
+                            print(f"[ARCHIVER] Success! Archived tweets back to {cutoff_time}")
+                            hit_cutoff = True
+                            break
+                            
                         # Track this tweet as archived
                         oldest_archived_time = min(oldest_archived_time, tweet_time)
                         seen_ids.add(tweet_id)

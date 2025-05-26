@@ -186,7 +186,7 @@ def archive_tweets():
     with sync_playwright() as p:
         # Launch browser with optimized settings
         browser = p.chromium.launch(
-            headless=False,
+            headless=True,
             args=[
                 '--disable-dev-shm-usage',
                 '--no-sandbox',
