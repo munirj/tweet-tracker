@@ -179,7 +179,7 @@ def archive_tweets():
     conn, c = init_db()
     seen_ids = set()
     now = datetime.now(timezone.utc)
-    cutoff_time = now - timedelta(hours=(24*120))  # 25 hours for overlap
+    cutoff_time = now - timedelta(hours=(24*1500))  # 25 hours for overlap
     print(f"[ARCHIVER] Current time: {now}")
     print(f"[ARCHIVER] Cutoff time: {cutoff_time}")
     
@@ -232,7 +232,7 @@ def archive_tweets():
         no_new_tweets_count = 0
         
         scroll_attempts = 0
-        max_scroll_attempts = 1000000  # Increase maximum scrolls
+        max_scroll_attempts = 1000000000  # Increase maximum scrolls
         last_progress_time = oldest_seen_time
         stalled_scrolls = 0
         
