@@ -7,7 +7,7 @@ from config import SESSION_FILE
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current script dir
-DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight_long.db")
+DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_infinite.db")
 DB_PATH = os.path.abspath(DB_PATH)  # normalize the final path
 
 def init_db():
@@ -175,13 +175,11 @@ def careful_scroll(page):
         return False
 
 def archive_tweets():
-    """Main function to archive tweets from the last 24-25 hours"""
+    """Main function to continuously archive tweets until stopped"""
     conn, c = init_db()
     seen_ids = set()
-    now = datetime.now(timezone.utc)
-    cutoff_time = now - timedelta(hours=(24*1500))  # 25 hours for overlap
-    print(f"[ARCHIVER] Current time: {now}")
-    print(f"[ARCHIVER] Cutoff time: {cutoff_time}")
+    start_time = datetime.now(timezone.utc)
+    print(f"[ARCHIVER] Starting archival at: {start_time}")
     
     with sync_playwright() as p:
         # Launch browser with optimized settings
@@ -201,13 +199,108 @@ def archive_tweets():
             user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         )
         
+        # Enable request logging
+        def log_request(request):
+            if 'graphql' in request.url or 'api' in request.url:
+                print(f"[DEBUG] Request: {request.method} {request.url}")
         page = context.new_page()
-        print("[ARCHIVER] Loading timeline...")
-        page.goto("https://pro.x.com/i/decks/1915696383484371263", timeout=60000)
+        page.on('request', log_request)
         
-        # Wait for initial content and ensure we're at top
-        page.wait_for_selector('[data-testid="cellInnerDiv"]', timeout=15000)
-        page.wait_for_selector('article', timeout=15000)
+        print("[ARCHIVER] Loading timeline...")
+        page.set_default_timeout(60000)  # 60 seconds for all operations
+        
+        try:
+            # First try loading with shorter timeout
+            print("[DEBUG] Attempting to load page...")
+            try:
+                response = page.goto("https://pro.x.com/i/decks/1915696383484371263", timeout=20000)
+                print(f"[DEBUG] Initial page load complete with status: {response.status}")
+            except Exception as e:
+                print(f"[DEBUG] Initial page load timed out: {e}")
+                print("[DEBUG] Checking if page loaded partially...")
+            
+            # Check if we got any content
+            try:
+                title = page.title()
+                print(f"[DEBUG] Page title: {title}")
+            except:
+                print("[DEBUG] Could not get page title")
+                
+            # Wait for network to settle with a shorter timeout
+            try:
+                page.wait_for_load_state('networkidle', timeout=10000)
+                print("[DEBUG] Network is idle")
+            except Exception as e:
+                print(f"[DEBUG] Network not idle: {e}")
+            
+            # Wait a moment for any post-load JavaScript
+            page.wait_for_timeout(5000)
+            
+            # Try to detect what state we're in
+            print("[DEBUG] Checking page state...")
+            html = page.content()
+            print(f"[DEBUG] Page title: {page.title()}")
+            
+            # Check for various timeline selectors
+            timeline_selectors = [
+                '[data-testid="cellInnerDiv"]',  # Standard timeline
+                'article',                        # Tweet articles
+                '[data-testid="tweet"]',         # Alternative tweet marker
+                'div[role="main"]',              # Main content area
+                '.timeline-item'                  # Another possible timeline class
+            ]
+            
+            # Check for authentication elements
+            auth_selectors = [
+                'input[autocomplete="username"]',  # Login form
+                'input[name="text"]',             # Another login field
+                '[data-testid="login-button"]'    # Login button
+            ]
+            
+            print("[DEBUG] Checking for timeline elements...")
+            for selector in timeline_selectors:
+                count = page.locator(selector).count()
+                print(f"[DEBUG] Found {count} elements matching '{selector}'")
+                
+            print("[DEBUG] Checking for auth elements...")
+            for selector in auth_selectors:
+                count = page.locator(selector).count()
+                print(f"[DEBUG] Found {count} elements matching '{selector}'")
+            
+            # Check if we're logged in
+            for selector in auth_selectors:
+                if page.locator(selector).count() > 0:
+                    print("[ERROR] Not authenticated - login form detected")
+                    print("[ERROR] Please ensure your session file is valid")
+                    browser.close()
+                    conn.close()
+                    return
+            
+            # Try to find timeline content
+            found_timeline = False
+            for selector in timeline_selectors:
+                try:
+                    element = page.wait_for_selector(selector, timeout=10000)
+                    if element:
+                        print(f"[DEBUG] Successfully found timeline using selector: {selector}")
+                        found_timeline = True
+                        break
+                except:
+                    continue
+                    
+            if not found_timeline:
+                print("[ERROR] Could not find timeline content with any known selector")
+                print("[DEBUG] Current page HTML:")
+                print(html[:1000] + "...")
+                browser.close()
+                conn.close()
+                return
+            
+        except Exception as e:
+            print(f"[ERROR] Failed while checking authentication: {e}")
+            browser.close()
+            conn.close()
+            return
         
         # Force scroll to top to ensure we start fresh
         page.evaluate("""
@@ -230,30 +323,28 @@ def archive_tweets():
         oldest_seen_time = datetime.now(timezone.utc)
         oldest_archived_time = datetime.now(timezone.utc)
         no_new_tweets_count = 0
-        
         scroll_attempts = 0
-        max_scroll_attempts = 1000000000  # Increase maximum scrolls
-        last_progress_time = oldest_seen_time
+        
+        last_progress_time = datetime.now(timezone.utc)
         stalled_scrolls = 0
         
-        # Track both the real oldest time and whether we've hit the cutoff
-        hit_cutoff = False
-        
-        while not hit_cutoff and scroll_attempts < max_scroll_attempts:
+        # Track progress
+        while True:  # Run until manually stopped
             articles = page.locator("article")
             article_count = articles.count()
             found_new_tweet = False
             scroll_attempts += 1
             
-            print(f"\n[ARCHIVER] Scroll attempt {scroll_attempts}/{max_scroll_attempts}")
+            print(f"\n[ARCHIVER] Scroll attempt {scroll_attempts}")
             print(f"[ARCHIVER] Articles loaded: {article_count}")
             
             # Process articles in batches for better performance
             batch_size = 10
             for i in range(0, article_count, batch_size):
                 batch_end = min(i + batch_size, article_count)
+                current_time = datetime.now(timezone.utc)
                 print(f"\n[ARCHIVER] Processing articles {i+1}-{batch_end} of {article_count}...")
-                print(f"[ARCHIVER] Current oldest seen: {oldest_seen_time} ({(now - oldest_seen_time).total_seconds() / 3600:.1f} hours ago)")
+                print(f"[ARCHIVER] Current oldest seen: {oldest_seen_time} ({(current_time - oldest_seen_time).total_seconds() / 3600:.1f} hours ago)")
                 
                 for j in range(i, batch_end):
                     try:
@@ -269,16 +360,12 @@ def archive_tweets():
                         
                         # Get tweet ID for debugging
                         tweet_id = extract_tweet_id(article)
-                        age_hours = (now - tweet_time).total_seconds() / 3600
+                        current_time = datetime.now(timezone.utc)
+                        age_hours = (current_time - tweet_time).total_seconds() / 3600
                         print(f"[ARCHIVER] Tweet {tweet_id}: time={tweet_time}, age={age_hours:.1f}h")
                         
                         # Always track the oldest tweet we've seen
                         oldest_seen_time = min(oldest_seen_time, tweet_time)
-                        
-                        # Skip if tweet is too old
-                        if tweet_time < cutoff_time:
-                            print(f"[ARCHIVER] Tweet {tweet_id} is too old (before {cutoff_time})")
-                            continue
                         
                         # Track this tweet as archived
                         oldest_archived_time = min(oldest_archived_time, tweet_time)
@@ -312,18 +399,11 @@ def archive_tweets():
                     except Exception as e:
                         print(f"[ERROR] Failed to process article: {e}")
             
-            # Check if we've hit our target time
-            if oldest_archived_time <= cutoff_time:
-                print(f"[ARCHIVER] Success! Archived tweets back to {cutoff_time}")
-                hit_cutoff = True
-                break
-                
             # Check if we're making progress
             if found_new_tweet:
                 if oldest_seen_time < last_progress_time:
-                    hours_back = (last_progress_time - oldest_seen_time).total_seconds() / 3600
-                    hours_to_go = (oldest_seen_time - cutoff_time).total_seconds() / 3600
-                    print(f"[ARCHIVER] Progress: went back {hours_back:.1f}h, {hours_to_go:.1f}h more to go")
+                    hours_back = (start_time - oldest_seen_time).total_seconds() / 3600
+                    print(f"[ARCHIVER] Progress: archived back to {oldest_seen_time} ({hours_back:.1f}h ago)")
                     last_progress_time = oldest_seen_time
                     stalled_scrolls = 0
                 else:
