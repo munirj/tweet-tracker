@@ -7,7 +7,7 @@ from config import SESSION_FILE
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current script dir
-DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight_test.db")
+DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight.db")
 DB_PATH = os.path.abspath(DB_PATH)  # normalize the final path
 
 def init_db():
@@ -206,7 +206,7 @@ def archive_tweets():
     conn, c = init_db()
     seen_ids = set()
     now = datetime.now(timezone.utc)
-    cutoff_time = now - timedelta(hours=(25))  
+    cutoff_time = now - timedelta(hours=(28))  
     print(f"[ARCHIVER] Current time: {now}")
     print(f"[ARCHIVER] Cutoff time: {cutoff_time}")
     
