@@ -7,7 +7,7 @@ from config import SESSION_FILE
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # current script dir
-DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight_test.db")
+DB_PATH = os.path.join(BASE_DIR, "..", "dbs", "tweets_overnight.db")
 DB_PATH = os.path.abspath(DB_PATH)  # normalize the final path
 
 def init_db():
@@ -15,12 +15,10 @@ def init_db():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    # Add original_poster column if it doesn't exist
     c.execute("""
         CREATE TABLE IF NOT EXISTS tweets (
             tweet_id TEXT PRIMARY KEY,
             user_handle TEXT,
-            original_poster TEXT,
             text TEXT,
             created_at TEXT,
             likes INTEGER DEFAULT 0,
@@ -30,13 +28,6 @@ def init_db():
             collected_at TEXT
         );
     """)
-    
-    # Check if we need to add the original_poster column to existing table
-    c.execute("PRAGMA table_info(tweets)")
-    columns = [col[1] for col in c.fetchall()]
-    if 'original_poster' not in columns:
-        c.execute("ALTER TABLE tweets ADD COLUMN original_poster TEXT")
-    
     conn.commit()
     return conn, c
 
@@ -124,24 +115,6 @@ def extract_user_handle(article):
         return handle_elem.inner_text(timeout=5000) if handle_elem else "unknown"
     except Exception:
         return "unknown"
-
-def extract_original_poster(article):
-    """Extract original poster's handle for reposts"""
-    try:
-        # First check if this is a repost
-        repost_elem = article.locator('div[data-testid="socialContext"]:has-text("Reposted")').first
-        if not repost_elem:
-            return None
-
-        # Get the handle from the link in the User-Name section
-        handle = article.locator('div[data-testid="User-Name"] div[dir="ltr"] > span > span').first
-        if handle:
-            text = handle.text_content(timeout=1000)
-            if text and 'reposted' not in text.lower():
-                return text
-        return None
-    except Exception:
-        return None
 
 def extract_metric_from_label(article, label_text):
     """Extract a specific metric (likes, reposts, etc.) from article"""
@@ -323,16 +296,13 @@ def archive_tweets():
                         
                         # Store in database
                         try:
-                            # Get original poster for reposts
-                            original_poster = extract_original_poster(article)
-                            
                             c.execute("""
                                 INSERT OR REPLACE INTO tweets (
-                                    tweet_id, user_handle, original_poster, text, created_at,
+                                    tweet_id, user_handle, text, created_at,
                                     likes, reposts, replies, views, collected_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                             """, (
-                                tweet_id, user_handle, original_poster, tweet_text, tweet_time.strftime('%Y-%m-%d %H:%M:%S'),
+                                tweet_id, user_handle, tweet_text, tweet_time.strftime('%Y-%m-%d %H:%M:%S'),
                                 metrics["likes"], metrics["retweets"], 
                                 metrics["replies"], metrics["views"],
                                 collected_at.strftime('%Y-%m-%d %H:%M:%S')
